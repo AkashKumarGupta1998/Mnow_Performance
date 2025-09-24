@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Performance Dashboard - Daily Update</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+        }
+        
+        .ranking-table {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 15px 10px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        
+        td {
+            padding: 12px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        tr:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .rank-cell {
+            font-weight: bold;
+            text-align: center;
+            width: 60px;
+        }
+        
+        .warehouse-name {
+            font-weight: 600;
+        }
+        
+        .metrics-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .metric-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .metric {
+            margin-bottom: 25px;
+        }
+        
+        .metric-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .metric-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .metric-value {
+            height: 100%;
+            border-radius: 4px;
+        }
+        
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            backdrop-filter: blur(5px);
+        }
+        
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .podium {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            height: 200px;
+            margin-bottom: 30px;
+            gap: 10px;
+        }
+        
+        .podium-item {
+            text-align: center;
+            color: white;
+            border-radius: 10px 10px 0 0;
+            padding: 10px;
+            width: 100px;
+            position: relative;
+            transition: all 0.5s;
+        }
+        
+        .rank-1 {
+            height: 160px;
+            background: linear-gradient(to bottom, #ffd700, #ffa500);
+            order: 2;
+        }
+        
+        .rank-2 {
+            height: 120px;
+            background: linear-gradient(to bottom, #c0c0c0, #a0a0a0);
+            order: 1;
+        }
+        
+        .rank-3 {
+            height: 100px;
+            background: linear-gradient(to bottom, #cd7f32, #a56a2b);
+            order: 3;
+        }
+        
+        .podium-rank {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .podium-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        
+        .highlight {
+            animation: pulse 2s infinite;
+            border-left: 4px solid #ffd700;
+        }
+        
+        @keyframes pulse {
+            0% { background-color: rgba(255, 215, 0, 0.1); }
+            50% { background-color: rgba(255, 215, 0, 0.3); }
+            100% { background-color: rgba(255, 215, 0, 0.1); }
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.8s ease-out;
+        }
+        
+        .data-input-panel {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        .update-title {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .input-method {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .input-method button {
+            flex: 1;
+            padding: 12px;
+            font-size: 0.9rem;
+        }
+        
+        .input-method button.active {
+            background: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+        
+        .file-upload {
+            margin-bottom: 15px;
+        }
+        
+        .file-upload-label {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 12px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .file-upload-label:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        #file-name {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            text-align: center;
+            display: block;
+        }
+        
+        .manual-input {
+            display: none;
+        }
+        
+        .manual-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.8rem;
+        }
+        
+        .manual-table th, .manual-table td {
+            padding: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+        }
+        
+        .manual-table th {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        .manual-table input {
+            width: 100%;
+            padding: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            color: white;
+            text-align: center;
+        }
+        
+        .instructions {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+        
+        .instructions h3 {
+            margin-bottom: 10px;
+            color: #ffd700;
+        }
+        
+        .instructions ol {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .date-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            justify-content: center;
+        }
+        
+        .date-selector label {
+            font-weight: 600;
+        }
+        
+        .date-selector input {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+        
+        .status.success {
+            background: rgba(76, 175, 80, 0.3);
+            border: 1px solid rgba(76, 175, 80, 0.5);
+            display: block;
+        }
+        
+        .status.error {
+            background: rgba(244, 67, 54, 0.3);
+            border: 1px solid rgba(244, 67, 54, 0.5);
+            display: block;
+        }
+        
+        @media (max-width: 1100px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .metrics-panel {
+                order: -1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Warehouse Performance Dashboard</h1>
+            <div class="subtitle">Daily Data Update System</div>
+        </header>
+        
+        <div class="dashboard">
+            <div class="ranking-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Warehouse Name</th>
+                            <th>Serviceability</th>
+                            <th>Units</th>
+                            <th>Delivered Units</th>
+                            <th>Orders</th>
+                            <th>Delivered Orders</th>
+                            <th>SLA</th>
+                            <th>O2D</th>
+                            <th>Cancellation</th>
+                            <th>RTO</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ranking-body">
+                        <!-- Data will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="metrics-panel">
+                <div class="date-selector">
+                    <label for="report-date">Report Date:</label>
+                    <input type="date" id="report-date">
+                </div>
+                
+                <h2 class="metric-title">Top Performers</h2>
+                <div class="podium">
+                    <div class="podium-item rank-1">
+                        <div class="podium-rank">1</div>
+                        <div class="podium-name" id="podium-1">Mandawali</div>
+                    </div>
+                    <div class="podium-item rank-2">
+                        <div class="podium-rank">2</div>
+                        <div class="podium-name" id="podium-2">PushpVihar</div>
+                    </div>
+                    <div class="podium-item rank-3">
+                        <div class="podium-rank">3</div>
+                        <div class="podium-name" id="podium-3">Janakpuri</div>
+                    </div>
+                </div>
+                
+                <h2 class="metric-title">Key Metrics</h2>
+                <div class="metric">
+                    <div class="metric-label">
+                        <span>Average SLA</span>
+                        <span id="avg-sla">50.56</span>
+                    </div>
+                    <div class="metric-bar">
+                        <div class="metric-value" style="width: 78%; background: linear-gradient(to right, #4facfe, #00f2fe);"></div>
+                    </div>
+                </div>
+                
+                <div class="metric">
+                    <div class="metric-label">
+                        <span>Average O2D</span>
+                        <span id="avg-o2d">23.08</span>
+                    </div>
+                    <div class="metric-bar">
+                        <div class="metric-value" style="width: 65%; background: linear-gradient(to right, #43e97b, #38f9d7);"></div>
+                    </div>
+                </div>
+                
+                <div class="metric">
+                    <div class="metric-label">
+                        <span>Cancellation Rate</span>
+                        <span id="avg-cancel">8.42%</span>
+                    </div>
+                    <div class="metric-bar">
+                        <div class="metric-value" style="width: 42%; background: linear-gradient(to right, #fa709a, #fee140);"></div>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button id="animate-rank">Animate Ranking</button>
+                    <button id="save-data">Save Today's Data</button>
+                    <button id="load-previous">Load Previous Data</button>
+                </div>
+                
+                <div class="data-input-panel">
+                    <div class="update-title">Update Daily Data</div>
+                    
+                    <div class="input-method">
+                        <button id="file-method" class="active">Upload Excel/CSV</button>
+                        <button id="manual-method">Manual Entry</button>
+                    </div>
+                    
+                    <div class="file-upload">
+                        <label for="data-file" class="file-upload-label">
+                            📊 Upload Excel or CSV File
+                        </label>
+                        <input type="file" id="data-file" accept=".xlsx, .xls, .csv" style="display: none;">
+                        <span id="file-name">No file selected</span>
+                    </div>
+                    
+                    <div class="manual-input" id="manual-input">
+                        <table class="manual-table">
+                            <thead>
+                                <tr>
+                                    <th>Warehouse</th>
+                                    <th>Units</th>
+                                    <th>Delivered</th>
+                                    <th>Orders</th>
+                                    <th>Delivered Orders</th>
+                                    <th>SLA</th>
+                                    <th>O2D</th>
+                                    <th>Cancellation%</th>
+                                </tr>
+                            </thead>
+                            <tbody id="manual-data">
+                                <!-- Manual data inputs will go here -->
+                            </tbody>
+                        </table>
+                        <button id="add-row" style="margin-top: 10px; width: 100%;">+ Add Another Warehouse</button>
+                    </div>
+                    
+                    <button id="update-dashboard" style="width: 100%; margin-top: 15px;">Update Dashboard</button>
+                    
+                    <div id="update-status" class="status"></div>
+                    
+                    <div class="instructions">
+                        <h3>How to update:</h3>
+                        <ol>
+                            <li>Select today's date</li>
+                            <li>Upload your Excel/CSV file or enter data manually</li>
+                            <li>Click "Update Dashboard" to see results</li>
+                            <li>Click "Save Today's Data" to store for future reference</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include SheetJS library for Excel processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <script>
+        // Warehouse data
+        let warehouseData = [];
+        
+        // Set today's date as default
+        document.getElementById('report-date').valueAsDate = new Date();
+
+        // Function to format numbers with commas
+        function formatNumber(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        // Function to populate the table
+        function populateTable() {
+            const tbody = document.getElementById('ranking-body');
+            tbody.innerHTML = '';
+            
+            if (warehouseData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px;">No data available. Please upload your daily data.</td></tr>';
+                return;
+            }
+            
+            warehouseData.forEach(warehouse => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="rank-cell">${warehouse.rank}</td>
+                    <td class="warehouse-name">${warehouse.name}</td>
+                    <td>${warehouse.serviceability}</td>
+                    <td>${formatNumber(warehouse.units)}</td>
+                    <td>${formatNumber(warehouse.deliveredUnits)}</td>
+                    <td>${formatNumber(warehouse.orders)}</td>
+                    <td>${formatNumber(warehouse.deliveredOrders)}</td>
+                    <td>${warehouse.sla}</td>
+                    <td>${warehouse.o2d}</td>
+                    <td>${warehouse.cancellation}</td>
+                    <td>${warehouse.rto}</td>
+                `;
+                
+                // Add highlight to top 3 performers
+                if (warehouse.rank <= 3) {
+                    row.classList.add('highlight');
+                }
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        // Function to update podium
+        function updatePodium() {
+            if (warehouseData.length >= 3) {
+                document.getElementById('podium-1').textContent = warehouseData[0].name.split(' ')[0];
+                document.getElementById('podium-2').textContent = warehouseData[1].name.split(' ')[0];
+                document.getElementById('podium-3').textContent = warehouseData[2].name.split(' ')[0];
+            } else {
+                document.getElementById('podium-1').textContent = '-';
+                document.getElementById('podium-2').textContent = '-';
+                document.getElementById('podium-3').textContent = '-';
+            }
+        }
+
+        // Function to calculate and display averages
+        function updateAverages() {
+            if (warehouseData.length === 0) {
+                document.getElementById('avg-sla').textContent = '0.00';
+                document.getElementById('avg-o2d').textContent = '0.00';
+                document.getElementById('avg-cancel').textContent = '0.00%';
+                return;
+            }
+            
+            const totalSla = warehouseData.reduce((sum, wh) => sum + wh.sla, 0);
+            const totalO2d = warehouseData.reduce((sum, wh) => sum + wh.o2d, 0);
+            const totalCancel = warehouseData.reduce((sum, wh) => sum + parseFloat(wh.cancellation), 0);
+            
+            document.getElementById('avg-sla').textContent = (totalSla / warehouseData.length).toFixed(2);
+            document.getElementById('avg-o2d').textContent = (totalO2d / warehouseData.length).toFixed(2);
+            document.getElementById('avg-cancel').textContent = (totalCancel / warehouseData.length).toFixed(2) + '%';
+        }
+
+        // Function to animate ranking changes
+        function animateRanking() {
+            const rows = document.querySelectorAll('#ranking-body tr');
+            
+            if (rows.length === 0) return;
+            
+            // Reset all rows
+            rows.forEach(row => {
+                row.style.transform = 'translateX(-100px)';
+                row.style.opacity = '0';
+            });
+            
+            // Animate rows one by one with delay
+            rows.forEach((row, index) => {
+                setTimeout(() => {
+                    row.classList.add('slide-in');
+                    row.style.transform = 'translateX(0)';
+                    row.style.opacity = '1';
+                }, index * 150);
+            });
+            
+            // Animate podium
+            const podiumItems = document.querySelectorAll('.podium-item');
+            podiumItems.forEach((item, index) => {
+                item.style.transform = 'scale(0)';
+                setTimeout(() => {
+                    item.style.transition = 'transform 0.5s ease-out';
+                    item.style.transform = 'scale(1)';
+                }, 800 + index * 200);
+            });
+        }
+
+        // Function to process Excel file
+        function processExcelFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        // Get the first worksheet
+                        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                        
+                        // Convert to JSON
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                        
+                        resolve(jsonData);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                
+                reader.onerror = function() {
+                    reject(new Error('Error reading file'));
+                };
+                
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // Function to process CSV file
+        function processCSVFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const csvText = e.target.result;
+                        const lines = csvText.split('\n');
+                        
+                        if (lines.length < 2) {
+                            reject(new Error('CSV file is empty or has no data'));
+                            return;
+                        }
+                        
+                        // Extract headers
+                        const headers = lines[0].split(',').map(h => h.trim());
+                        
+                        // Process data rows
+                        const jsonData = [];
+                        for (let i = 1; i < lines.length; i++) {
+                            if (lines[i].trim() === '') continue;
+                            
+                            const values = lines[i].split(',').map(v => v.trim());
+                            const row = {};
+                            
+                            headers.forEach((header, index) => {
+                                if (index < values.length) {
+                                    let value = values[index];
+                                    
+                                    // Remove quotes if present
+                                    if (value.startsWith('"') && value.endsWith('"')) {
+                                        value = value.substring(1, value.length - 1);
+                                    }
+                                    
+                                    // Convert numeric values
+                                    if (!isNaN(value) && value !== '') {
+                                        // Check if it's a percentage
+                                        if (value.includes('%')) {
+                                            value = parseFloat(value) + '%';
+                                        } else {
+                                            value = parseFloat(value);
+                                        }
+                                    }
+                                    
+                                    row[header] = value;
+                                }
+                            });
+                            
+                            jsonData.push(row);
+                        }
+                        
+                        resolve(jsonData);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                
+                reader.onerror = function() {
+                    reject(new Error('Error reading file'));
+                };
+                
+                reader.readAsText(file);
+            });
+        }
+
+        // Function to update data from file
+        function updateDataFromFile(file) {
+            let processor;
+            
+            if (file.name.endsWith('.csv')) {
+                processor = processCSVFile;
+            } else {
+                processor = processExcelFile;
+            }
+            
+            processor(file)
+                .then(data => {
+                    // Map the data to our warehouse format
+                    const mappedData = data.map(item => {
+                        // Handle different column name variations
+                        const name = item.warehouse_name || item.name || item.Warehouse || '';
+                        const serviceability = item.Serviceability || item.serviceability || '100.00%';
+                        const units = item.Units || item.units || 0;
+                        const deliveredUnits = item['Delivered Units'] || item.deliveredUnits || 0;
+                        const orders = item.orders || item.Orders || 0;
+                        const deliveredOrders = item['Delivered Orders'] || item.deliveredOrders || 0;
+                        const sla = item.SLA || item.sla || 0;
+                        const o2d = item.O2D || item.o2d || 0;
+                        const breadx = item['Breadx%'] || item.breadx || '0%';
+                        const deepPain = item['Deep Pain%'] || item.deepPain || '0%';
+                        const cancellation = item.Cancellation || item.cancellation || '0%';
+                        const rto = item.RTO || item.rto || '0%';
+                        
+                        return {
+                            name,
+                            serviceability: typeof serviceability === 'number' ? serviceability.toFixed(2) + '%' : serviceability,
+                            units: parseInt(units) || 0,
+                            deliveredUnits: parseInt(deliveredUnits) || 0,
+                            orders: parseInt(orders) || 0,
+                            deliveredOrders: parseInt(deliveredOrders) || 0,
+                            sla: parseFloat(sla) || 0,
+                            o2d: parseFloat(o2d) || 0,
+                            breadx: typeof breadx === 'number' ? breadx.toFixed(2) + '%' : breadx,
+                            deepPain: typeof deepPain === 'number' ? deepPain.toFixed(2) + '%' : deepPain,
+                            cancellation: typeof cancellation === 'number' ? cancellation.toFixed(2) + '%' : cancellation,
+                            rto: typeof rto === 'number' ? rto.toFixed(2) + '%' : rto
+                        };
+                    });
+                    
+                    // Sort by delivered units and assign ranks
+                    mappedData.sort((a, b) => b.deliveredUnits - a.deliveredUnits);
+                    mappedData.forEach((item, index) => {
+                        item.rank = index + 1;
+                    });
+                    
+                    // Update the warehouseData
+                    warehouseData = mappedData;
+                    
+                    // Update the dashboard
+                    updateDashboard();
+                    
+                    document.getElementById('update-status').textContent = 'Data loaded successfully from ' + file.name;
+                    document.getElementById('update-status').className = 'status success';
+                })
+                .catch(error => {
+                    document.getElementById('update-status').textContent = 'Error: ' + error.message;
+                    document.getElementById('update-status').className = 'status error';
+                    console.error('File processing error:', error);
+                });
+        }
+
+        // Function to update data from manual input
+        function updateDataFromManual() {
+            const rows = document.querySelectorAll('#manual-data tr');
+            const mappedData = [];
+            
+            rows.forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                if (inputs[0].value.trim() !== '') {
+                    mappedData.push({
+                        name: inputs[0].value,
+                        serviceability: '100.00%',
+                        units: parseInt(inputs[1].value) || 0,
+                        deliveredUnits: parseInt(inputs[2].value) || 0,
+                        orders: parseInt(inputs[3].value) || 0,
+                        deliveredOrders: parseInt(inputs[4].value) || 0,
+                        sla: parseFloat(inputs[5].value) || 0,
+                        o2d: parseFloat(inputs[6].value) || 0,
+                        breadx: '0%',
+                        deepPain: '0%',
+                        cancellation: inputs[7].value || '0%',
+                        rto: '0%'
+                    });
+                }
+            });
+            
+            if (mappedData.length === 0) {
+                document.getElementById('update-status').textContent = 'Please enter at least one warehouse data';
+                document.getElementById('update-status').className = 'status error';
+                return;
+            }
+            
+            // Sort by delivered units and assign ranks
+            mappedData.sort((a, b) => b.deliveredUnits - a.deliveredUnits);
+            mappedData.forEach((item, index) => {
+                item.rank = index + 1;
+            });
+            
+            // Update the warehouseData
+            warehouseData = mappedData;
+            
+            // Update the dashboard
+            updateDashboard();
+            
+            document.getElementById('update-status').textContent = 'Manual data loaded successfully';
+            document.getElementById('update-status').className = 'status success';
+        }
+
+        // Function to update the entire dashboard
+        function updateDashboard() {
+            populateTable();
+            updatePodium();
+            updateAverages();
+            animateRanking();
+        }
+
+        // Function to add a new row to manual input
+        function addManualRow() {
+            const tbody = document.getElementById('manual-data');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="text" placeholder="Warehouse name"></td>
+                <td><input type="number" placeholder="Units"></td>
+                <td><input type="number" placeholder="Delivered"></td>
+                <td><input type="number" placeholder="Orders"></td>
+                <td><input type="number" placeholder="Delivered Orders"></td>
+                <td><input type="number" step="0.01" placeholder="SLA"></td>
+                <td><input type="number" step="0.01" placeholder="O2D"></td>
+                <td><input type="text" placeholder="Cancellation %"></td>
+            `;
+            tbody.appendChild(row);
+        }
+
+        // Function to save data to localStorage
+        function saveData() {
+            const date = document.getElementById('report-date').value;
+            if (!date) {
+                alert('Please select a date first');
+                return;
+            }
+            
+            if (warehouseData.length === 0) {
+                alert('No data to save. Please update the dashboard first.');
+                return;
+            }
+            
+            const savedData = {
+                date: date,
+                data: warehouseData
+            };
+            
+            // Get existing saved data
+            const existingData = JSON.parse(localStorage.getItem('warehouseData') || '[]');
+            
+            // Remove existing entry for this date if it exists
+            const filteredData = existingData.filter(item => item.date !== date);
+            
+            // Add new data
+            filteredData.push(savedData);
+            
+            // Save back to localStorage
+            localStorage.setItem('warehouseData', JSON.stringify(filteredData));
+            
+            alert('Data saved successfully for ' + date);
+        }
+
+        // Function to load previous data
+        function loadPreviousData() {
+            const date = document.getElementById('report-date').value;
+            if (!date) {
+                alert('Please select a date first');
+                return;
+            }
+            
+            const savedData = JSON.parse(localStorage.getItem('warehouseData') || '[]');
+            const previousData = savedData.find(item => item.date === date);
+            
+            if (previousData) {
+                warehouseData = previousData.data;
+                updateDashboard();
+                document.getElementById('update-status').textContent = 'Data loaded for ' + date;
+                document.getElementById('update-status').className = 'status success';
+            } else {
+                document.getElementById('update-status').textContent = 'No saved data found for ' + date;
+                document.getElementById('update-status').className = 'status error';
+            }
+        }
+
+        // Initialize the dashboard
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set up manual input with one row
+            addManualRow();
+            
+            // Populate with empty data initially
+            populateTable();
+            updatePodium();
+            updateAverages();
+            
+            // Add event listeners
+            document.getElementById('animate-rank').addEventListener('click', animateRanking);
+            document.getElementById('save-data').addEventListener('click', saveData);
+            document.getElementById('load-previous').addEventListener('click', loadPreviousData);
+            
+            // File upload functionality
+            document.getElementById('data-file').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    document.getElementById('file-name').textContent = file.name;
+                }
+            });
+            
+            // Update dashboard button
+            document.getElementById('update-dashboard').addEventListener('click', () => {
+                if (document.getElementById('file-method').classList.contains('active')) {
+                    const fileInput = document.getElementById('data-file');
+                    if (fileInput.files.length > 0) {
+                        updateDataFromFile(fileInput.files[0]);
+                    } else {
+                        document.getElementById('update-status').textContent = 'Please select a file first';
+                        document.getElementById('update-status').className = 'status error';
+                    }
+                } else {
+                    updateDataFromManual();
+                }
+            });
+            
+            // Input method toggle
+            document.getElementById('file-method').addEventListener('click', () => {
+                document.getElementById('file-method').classList.add('active');
+                document.getElementById('manual-method').classList.remove('active');
+                document.querySelector('.file-upload').style.display = 'block';
+                document.getElementById('manual-input').style.display = 'none';
+            });
+            
+            document.getElementById('manual-method').addEventListener('click', () => {
+                document.getElementById('manual-method').classList.add('active');
+                document.getElementById('file-method').classList.remove('active');
+                document.querySelector('.file-upload').style.display = 'none';
+                document.getElementById('manual-input').style.display = 'block';
+            });
+            
+            // Add row button for manual input
+            document.getElementById('add-row').addEventListener('click', addManualRow);
+            
+            // Initial animation after a short delay
+            setTimeout(animateRanking, 1000);
+        });
+    </script>
+</body>
+</html>
